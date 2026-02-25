@@ -1,0 +1,5 @@
+{
+  "name": "Daily Expenses",
+  "description": "A secure, offline-first, analytics-driven expense tracker.",
+  "requestFramePermissions": []
+}
