@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import { format, subDays, isWithinInterval, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, PieChart as PieChartIcon } from 'lucide-react';
 
 export const Analytics: React.FC = () => {
   const { transactions, categories, currency, theme } = useAppContext();
@@ -169,7 +169,7 @@ export const Analytics: React.FC = () => {
           </>
         ) : (
           <div className="flex flex-col items-center justify-center py-8 text-zinc-500">
-            <PieChart className="opacity-20 mb-2" size={32} />
+            <PieChartIcon className="opacity-20 mb-2" size={32} />
             <p className="text-sm">No expenses in this period</p>
           </div>
         )}

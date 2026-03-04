@@ -6,10 +6,13 @@ import { AddExpense } from './components/AddExpense';
 import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
 import { CalendarView } from './components/CalendarView';
+import { AIAssistant } from './components/AIAssistant';
 import { Transaction } from './types';
+import { Sparkles } from 'lucide-react';
 
 export default function App() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [showAI, setShowAI] = useState(false);
 
   return (
     <AppProvider>
@@ -41,6 +44,17 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* AI Assistant Floating Button */}
+      <button
+        onClick={() => setShowAI(true)}
+        className="fixed bottom-20 right-4 p-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg transition-transform active:scale-95 z-40"
+      >
+        <Sparkles size={24} />
+      </button>
+
+      {/* AI Assistant Modal */}
+      {showAI && <AIAssistant onClose={() => setShowAI(false)} />}
     </AppProvider>
   );
 }

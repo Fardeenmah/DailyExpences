@@ -55,7 +55,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 };
 
 interface NavItemProps {
-  icon: React.ReactNode;
+  icon: React.ReactElement;
   label: string;
   isActive: boolean;
   onClick: () => void;
@@ -74,7 +74,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, isActive, onClick, isDar
       )}
     >
       <div className={cn("mb-1", isActive && "scale-110 transition-transform")}>
-        {React.cloneElement(icon as React.ReactElement, { size: 22 })}
+        {React.cloneElement(icon, { size: 22 } as any)}
       </div>
       <span className="text-[10px] font-medium">{label}</span>
     </button>
