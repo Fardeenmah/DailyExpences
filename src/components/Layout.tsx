@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, PieChart, PlusCircle, Settings, CalendarDays } from 'lucide-react';
+import { Home, PieChart, PlusCircle, Settings as SettingsIcon, CalendarDays } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppContext } from '../context/AppContext';
 
@@ -47,7 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
 
           <NavItem icon={<PieChart />} label="Analytics" isActive={currentTab === 'analytics'} onClick={() => setCurrentTab('analytics')} isDark={isDark} />
-          <NavItem icon={<Settings />} label="Settings" isActive={currentTab === 'settings'} onClick={() => setCurrentTab('settings')} isDark={isDark} />
+          <NavItem icon={<SettingsIcon />} label="Settings" isActive={currentTab === 'settings'} onClick={() => setCurrentTab('settings')} isDark={isDark} />
         </div>
       </nav>
     </div>
