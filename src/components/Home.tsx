@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, IndianRupee, Wallet, TrendingDown, TrendingUp, Calendar as CalendarIcon, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, IndianRupee, Wallet, CalendarCheck, BarChart3, Calendar as CalendarIcon, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { format, addDays, subDays, isSameDay, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
@@ -72,7 +72,7 @@ export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }
           title="Daily Total" 
           amount={dailyTotal} 
           currency={currency} 
-          icon={<TrendingDown className="text-rose-500" />} 
+          icon={<CalendarCheck className="text-rose-500" />} 
           isDark={isDark}
           highlight
         />
@@ -87,8 +87,9 @@ export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }
           title="Yearly Total" 
           amount={yearlyTotal} 
           currency={currency} 
-          icon={<TrendingUp className="text-emerald-500" />} 
+          icon={<BarChart3 className="text-emerald-500" />} 
           isDark={isDark}
+          variant="yearly"
         />
         <SummaryCard 
           title="Avg Daily" 
@@ -177,22 +178,57 @@ export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }
   );
 };
 
-const SummaryCard = ({ title, amount, currency, icon, isDark, highlight = false }: any) => (
-  <div className={cn(
-    "p-4 rounded-2xl flex flex-col justify-between transition-all",
-    isDark ? "bg-zinc-900 border border-zinc-800/50" : "bg-white border border-zinc-100 shadow-sm",
-    highlight && (isDark ? "bg-gradient-to-br from-zinc-900 to-zinc-800 border-indigo-500/30" : "bg-gradient-to-br from-white to-indigo-50/50 border-indigo-200")
-  )}>
-    <div className="flex items-center justify-between mb-3">
-      <span className={cn("text-xs font-medium uppercase tracking-wider", isDark ? "text-zinc-400" : "text-zinc-500")}>{title}</span>
-      {icon}
+const SummaryCard = ({ title, amount, currency, icon, isDark, highlight = false, variant = 'default' }: any) => {
+  const isYearly = variant === 'yearly';
+  
+  return (
+    <div className={cn(
+      "p-4 rounded-2xl flex flex-col justify-between transition-all relative overflow-hidden min-h-[140px]",
+      isDark ? "bg-zinc-900 border border-zinc-800/50" : "bg-white border border-zinc-100 shadow-sm",
+      highlight && (isDark ? "bg-gradient-to-br from-zinc-900 to-zinc-800 border-indigo-500/30" : "bg-gradient-to-br from-white to-indigo-50/50 border-indigo-200"),
+      isYearly && (isDark ? "bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-900/20 border-emerald-500/20" : "bg-gradient-to-br from-white to-emerald-50/50 border-emerald-200")
+    )}>
+      <div className="flex items-center justify-between mb-3 relative z-10">
+        <span className={cn("text-xs font-medium uppercase tracking-wider", isDark ? "text-zinc-400" : "text-zinc-500")}>{title}</span>
+        {icon}
+      </div>
+      
+      <div className="flex items-baseline space-x-1 relative z-10 mt-auto mb-2">
+        <span className="text-lg font-medium text-zinc-500">{currency}</span>
+        <span className="text-3xl font-bold tracking-tight">{amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+      </div>
+
+      {isYearly && (
+        <div className="absolute bottom-0 right-0 w-1/2 h-20 opacity-40 pointer-events-none pr-2 pb-1 flex flex-col justify-end">
+          <svg viewBox="0 0 100 40" className="w-full h-12" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgb(16, 185, 129)" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="rgb(16, 185, 129)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path 
+              d="M0 35 Q 10 30, 20 32 T 40 25 T 60 28 T 80 15 T 100 10 L 100 40 L 0 40 Z" 
+              fill="url(#sparklineGradient)"
+            />
+            <path 
+              d="M0 35 Q 10 30, 20 32 T 40 25 T 60 28 T 80 15 T 100 10" 
+              fill="none" 
+              stroke="rgb(16, 185, 129)" 
+              strokeWidth="1.5" 
+            />
+            <circle cx="100" cy="10" r="1.5" className="fill-emerald-500" />
+          </svg>
+          <div className="flex justify-between w-full px-0.5 mt-1">
+            {['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'].map((m, i) => (
+              <span key={i} className="text-[6px] font-bold text-zinc-500 leading-none">{m}</span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
-    <div className="flex items-baseline space-x-1">
-      <span className="text-lg font-medium text-zinc-500">{currency}</span>
-      <span className="text-2xl font-bold tracking-tight">{amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-    </div>
-  </div>
-);
+  );
+};
 
 const TransactionItem = ({ transaction, isDark, currency, categories, onEdit, onDelete }: any) => {
   const category = categories.find((c: any) => c.id === transaction.categoryId);
