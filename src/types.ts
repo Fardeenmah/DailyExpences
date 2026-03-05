@@ -1,4 +1,4 @@
-export type TransactionType = 'expense' | 'income' | 'transfer';
+export type TransactionType = 'expense' | 'income';
 
 export type PaymentMode = 'Cash' | 'UPI' | 'Card' | 'Bank' | 'Wallet';
 

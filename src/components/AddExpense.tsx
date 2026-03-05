@@ -57,7 +57,7 @@ export const AddExpense: React.FC<{ onClose: () => void, existingTransaction?: T
         "flex p-1 rounded-xl",
         isDark ? "bg-zinc-900" : "bg-zinc-100"
       )}>
-        {['expense', 'income', 'transfer'].map((t) => (
+        {['expense', 'income'].map((t) => (
           <button
             key={t}
             onClick={() => setType(t as TransactionType)}
