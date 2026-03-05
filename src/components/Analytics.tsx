@@ -3,7 +3,21 @@ import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import { format, subDays, isWithinInterval, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, PieChart as PieChartIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, PieChart as PieChartIcon, Utensils, Car, Receipt, ShoppingBag, HeartPulse, Wallet, MoreHorizontal, Briefcase, Building, Gift, PlusCircle, Home as HomeIcon, RefreshCcw, Award, Tag, Film, Book, ShoppingCart, Bus, Zap, Shield, Smile, CreditCard, ChevronRight } from 'lucide-react';
+
+const ICON_MAP: Record<string, any> = {
+  Utensils, Car, Receipt, ShoppingBag, HeartPulse, Wallet, MoreHorizontal, Briefcase, Building, Gift, PlusCircle,
+  Home: HomeIcon, RefreshCcw, Award, Tag, Film, Book, ShoppingCart, Bus, Zap, Shield, Smile, CreditCard, TrendingUp
+};
+
+const CategoryIcon = ({ name, color, size = 16 }: { name: string, color: string, size?: number }) => {
+  const Icon = ICON_MAP[name] || MoreHorizontal;
+  return (
+    <div className="p-2 rounded-xl" style={{ backgroundColor: `${color}20` }}>
+      <Icon size={size} style={{ color }} />
+    </div>
+  );
+};
 
 export const Analytics: React.FC = () => {
   const { transactions, categories, currency, theme } = useAppContext();
@@ -44,13 +58,17 @@ export const Analytics: React.FC = () => {
       .map(([id, value]) => {
         const cat = categories.find(c => c.id === id);
         return {
+          id,
           name: cat?.name || 'Unknown',
+          icon: cat?.icon || 'MoreHorizontal',
           value,
           color: cat?.color || '#8884d8'
         };
       })
       .sort((a, b) => b.value - a.value);
   }, [expenses, categories]);
+
+  const topCategory = categoryData[0];
 
   const dailyData = useMemo(() => {
     const data: Record<string, { date: string, expense: number, income: number }> = {};
@@ -119,24 +137,38 @@ export const Analytics: React.FC = () => {
 
       {/* Category Breakdown */}
       <div className={cn(
-        "p-5 rounded-3xl",
-        isDark ? "bg-zinc-900 border border-zinc-800/50" : "bg-white border border-zinc-100 shadow-sm"
+        "p-6 rounded-[2.5rem] relative overflow-hidden",
+        isDark ? "bg-zinc-900 border border-white/5" : "bg-white border border-zinc-100 shadow-sm"
       )}>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 mb-4">Category Breakdown</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Category Breakdown</h2>
+          {topCategory && (
+            <div className={cn(
+              "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter flex items-center gap-1.5",
+              isDark ? "bg-zinc-800 text-zinc-400" : "bg-zinc-100 text-zinc-500"
+            )}>
+              <TrendingDown size={10} className="text-rose-500" />
+              Top: {topCategory.name}
+            </div>
+          )}
+        </div>
+
         {categoryData.length > 0 ? (
-          <>
-            <div className="h-48 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="relative h-56 flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={categoryData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+                    innerRadius={70}
+                    outerRadius={90}
+                    paddingAngle={8}
                     dataKey="value"
                     stroke="none"
+                    animationBegin={0}
+                    animationDuration={1500}
                   >
                     {categoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -144,33 +176,72 @@ export const Analytics: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     formatter={(value: number) => [`${currency}${value.toLocaleString('en-IN')}`, 'Amount']}
-                    contentStyle={{ backgroundColor: isDark ? '#18181b' : '#fff', borderColor: isDark ? '#27272a' : '#e4e4e7', borderRadius: '12px' }}
-                    itemStyle={{ color: isDark ? '#fff' : '#000' }}
+                    contentStyle={{ 
+                      backgroundColor: isDark ? '#18181b' : '#fff', 
+                      borderColor: isDark ? '#27272a' : '#e4e4e7', 
+                      borderRadius: '16px',
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                    }}
+                    itemStyle={{ color: isDark ? '#fff' : '#000', fontWeight: 'bold' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Total</span>
+                <span className="text-2xl font-black tracking-tighter">
+                  {currency}{totalExpense.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
             </div>
-            <div className="mt-4 space-y-3">
-              {categoryData.map((cat, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className={isDark ? "text-zinc-300" : "text-zinc-700"}>{cat.name}</span>
+
+            <div className="space-y-5">
+              {categoryData.slice(0, 5).map((cat, i) => {
+                const percentage = (cat.value / totalExpense) * 100;
+                return (
+                  <div key={i} className="group cursor-pointer">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-3">
+                        <CategoryIcon name={cat.icon} color={cat.color} />
+                        <div>
+                          <p className={cn("text-sm font-bold", isDark ? "text-zinc-200" : "text-zinc-800")}>{cat.name}</p>
+                          <p className="text-[10px] text-zinc-500 font-medium">{currency}{cat.value.toLocaleString('en-IN')}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-black tracking-tighter">{Math.round(percentage)}%</p>
+                        <ChevronRight size={12} className="text-zinc-400 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                    <div className={cn("h-1.5 w-full rounded-full overflow-hidden", isDark ? "bg-zinc-800" : "bg-zinc-100")}>
+                      <div 
+                        className="h-full rounded-full transition-all duration-1000 ease-out"
+                        style={{ 
+                          width: `${percentage}%`, 
+                          backgroundColor: cat.color,
+                          boxShadow: `0 0 10px ${cat.color}40`
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <span className="font-medium">{currency}{cat.value.toLocaleString('en-IN')}</span>
-                    <span className={cn("text-xs w-10 text-right", isDark ? "text-zinc-500" : "text-zinc-400")}>
-                      {Math.round((cat.value / totalExpense) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+              {categoryData.length > 5 && (
+                <button className={cn(
+                  "w-full py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors",
+                  isDark ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-400" : "bg-zinc-50 hover:bg-zinc-100 text-zinc-500"
+                )}>
+                  View All Categories
+                </button>
+              )}
             </div>
-          </>
+          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-8 text-zinc-500">
-            <PieChartIcon className="opacity-20 mb-2" size={32} />
-            <p className="text-sm">No expenses in this period</p>
+          <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
+            <div className={cn("p-4 rounded-full mb-4", isDark ? "bg-zinc-800" : "bg-zinc-100")}>
+              <PieChartIcon className="opacity-40" size={32} />
+            </div>
+            <p className="text-sm font-bold tracking-tight">No expenses recorded yet</p>
+            <p className="text-xs opacity-60">Try adding an expense to see the breakdown</p>
           </div>
         )}
       </div>
