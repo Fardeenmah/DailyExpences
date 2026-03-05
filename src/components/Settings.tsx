@@ -88,7 +88,7 @@ export const Settings: React.FC = () => {
             const tx: any = {};
             headers.forEach((h, idx) => {
               let val: any = values[idx]?.replace(/^"|"$/g, '').replace(/""/g, '"');
-              if (h === 'amount') val = parseFloat(val);
+              if (h === 'amount') val = Number(parseFloat(val).toFixed(2));
               if (h === 'isRecurring') val = val === 'true';
               if (h === 'tags' && val) val = val.split(';');
               tx[h] = val;

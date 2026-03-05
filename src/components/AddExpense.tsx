@@ -27,7 +27,7 @@ export const AddExpense: React.FC<{ onClose: () => void, existingTransaction?: T
     if (!amount || !categoryId) return;
 
     const txData = {
-      amount: parseFloat(amount),
+      amount: Number(parseFloat(amount).toFixed(2)),
       description,
       categoryId,
       date: new Date(date).toISOString(),

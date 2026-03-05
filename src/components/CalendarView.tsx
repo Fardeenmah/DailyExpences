@@ -4,6 +4,7 @@ import { cn } from '../lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { Transaction } from '../types';
+import { sum, formatNumber } from '../lib/math';
 
 export const CalendarView: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }) => {
   const { transactions, currency, theme, deleteTransaction } = useAppContext();
@@ -19,15 +20,23 @@ export const CalendarView: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ 
   }, [currentMonth]);
 
   const dailyTotals = useMemo(() => {
-    const totals: Record<string, { expense: number, income: number }> = {};
+    const data: Record<string, { expenseAmounts: number[], incomeAmounts: number[] }> = {};
     
     transactions.forEach(t => {
       const dateStr = format(parseISO(t.date), 'yyyy-MM-dd');
-      if (!totals[dateStr]) {
-        totals[dateStr] = { expense: 0, income: 0 };
+      if (!data[dateStr]) {
+        data[dateStr] = { expenseAmounts: [], incomeAmounts: [] };
       }
-      if (t.type === 'expense') totals[dateStr].expense += t.amount;
-      if (t.type === 'income') totals[dateStr].income += t.amount;
+      if (t.type === 'expense') data[dateStr].expenseAmounts.push(t.amount);
+      if (t.type === 'income') data[dateStr].incomeAmounts.push(t.amount);
+    });
+    
+    const totals: Record<string, { expense: number, income: number }> = {};
+    Object.entries(data).forEach(([dateStr, d]) => {
+      totals[dateStr] = {
+        expense: sum(d.expenseAmounts),
+        income: sum(d.incomeAmounts)
+      };
     });
     
     return totals;
@@ -148,7 +157,7 @@ export const CalendarView: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ 
                     "font-bold text-lg",
                     t.type === 'expense' ? (isDark ? "text-rose-400" : "text-rose-600") : (isDark ? "text-emerald-400" : "text-emerald-600")
                   )}>
-                    {t.type === 'expense' ? '-' : '+'}{currency}{t.amount.toLocaleString('en-IN')}
+                    {t.type === 'expense' ? '-' : '+'}{currency}{formatNumber(t.amount, 'en-IN', 2)}
                   </div>
                   <div className="flex items-center space-x-3">
                     <button 

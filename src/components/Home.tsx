@@ -4,6 +4,7 @@ import { format, addDays, subDays, isSameDay, parseISO, startOfMonth, endOfMonth
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import { Transaction } from '../types';
+import { sum, formatNumber } from '../lib/math';
 
 export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -20,29 +21,42 @@ export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }
   }, [transactions, selectedDate]);
 
   const dailyTotal = useMemo(() => {
-    return dailyTransactions.reduce((acc, t) => acc + (t.type === 'expense' ? t.amount : 0), 0);
+    return sum(dailyTransactions.filter(t => t.type === 'expense').map(t => t.amount));
   }, [dailyTransactions]);
 
   const monthlyTotal = useMemo(() => {
     const start = startOfMonth(selectedDate);
     const end = endOfMonth(selectedDate);
-    return transactions
-      .filter(t => isWithinInterval(parseISO(t.date), { start, end }))
-      .reduce((acc, t) => acc + (t.type === 'expense' ? t.amount : 0), 0);
+    const filtered = transactions.filter(t => t.type === 'expense' && isWithinInterval(parseISO(t.date), { start, end }));
+    return sum(filtered.map(t => t.amount));
   }, [transactions, selectedDate]);
 
   const yearlyTotal = useMemo(() => {
     const start = startOfYear(selectedDate);
     const end = endOfYear(selectedDate);
-    return transactions
-      .filter(t => isWithinInterval(parseISO(t.date), { start, end }))
-      .reduce((acc, t) => acc + (t.type === 'expense' ? t.amount : 0), 0);
+    const filtered = transactions.filter(t => t.type === 'expense' && isWithinInterval(parseISO(t.date), { start, end }));
+    return sum(filtered.map(t => t.amount));
   }, [transactions, selectedDate]);
 
   const averageDaily = useMemo(() => {
-    const daysInMonth = parseInt(format(endOfMonth(selectedDate), 'd'), 10);
-    return monthlyTotal / daysInMonth;
-  }, [monthlyTotal, selectedDate]);
+    const start = startOfMonth(selectedDate);
+    const end = endOfMonth(selectedDate);
+    
+    // Filter transactions for the current month that are expenses
+    const monthlyExpenses = transactions.filter(t => 
+      t.type === 'expense' && 
+      isWithinInterval(parseISO(t.date), { start, end })
+    );
+
+    // Get unique dates (formatted as YYYY-MM-DD)
+    const uniqueDaysWithExpenses = new Set(
+      monthlyExpenses.map(t => format(parseISO(t.date), 'yyyy-MM-dd'))
+    );
+
+    const activeDaysCount = uniqueDaysWithExpenses.size;
+    
+    return activeDaysCount > 0 ? monthlyTotal / activeDaysCount : 0;
+  }, [transactions, monthlyTotal, selectedDate]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -195,7 +209,7 @@ const SummaryCard = ({ title, amount, currency, icon, isDark, highlight = false,
       
       <div className="flex items-baseline space-x-1 relative z-10 mt-auto mb-2">
         <span className="text-lg font-medium text-zinc-500">{currency}</span>
-        <span className="text-3xl font-bold tracking-tight">{amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+        <span className="text-3xl font-bold tracking-tight">{formatNumber(amount, 'en-IN', 2)}</span>
       </div>
 
       {isYearly && (
@@ -264,7 +278,7 @@ const TransactionItem = ({ transaction, isDark, currency, categories, onEdit, on
           "font-bold text-lg",
           isExpense ? (isDark ? "text-rose-400" : "text-rose-600") : (isDark ? "text-emerald-400" : "text-emerald-600")
         )}>
-          {isExpense ? '-' : '+'}{currency}{transaction.amount.toLocaleString('en-IN')}
+          {isExpense ? '-' : '+'}{currency}{formatNumber(transaction.amount, 'en-IN', 2)}
         </div>
         <div className="flex items-center space-x-3">
           <button 

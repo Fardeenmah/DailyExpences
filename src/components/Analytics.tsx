@@ -4,6 +4,7 @@ import { cn } from '../lib/utils';
 import { format, subDays, isWithinInterval, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, PieChart as PieChartIcon, Utensils, Car, Receipt, ShoppingBag, HeartPulse, Wallet, MoreHorizontal, Briefcase, Building, Gift, PlusCircle, Home as HomeIcon, RefreshCcw, Award, Tag, Film, Book, ShoppingCart, Bus, Zap, Shield, Smile, CreditCard, ChevronRight } from 'lucide-react';
+import { sum, calculatePercentage, formatNumber } from '../lib/math';
 
 const ICON_MAP: Record<string, any> = {
   Utensils, Car, Receipt, ShoppingBag, HeartPulse, Wallet, MoreHorizontal, Briefcase, Building, Gift, PlusCircle,
@@ -45,18 +46,20 @@ export const Analytics: React.FC = () => {
   const expenses = filteredTransactions.filter(t => t.type === 'expense');
   const income = filteredTransactions.filter(t => t.type === 'income');
 
-  const totalExpense = expenses.reduce((acc, t) => acc + t.amount, 0);
-  const totalIncome = income.reduce((acc, t) => acc + t.amount, 0);
+  const totalExpense = useMemo(() => sum(expenses.map(t => t.amount)), [expenses]);
+  const totalIncome = useMemo(() => sum(income.map(t => t.amount)), [income]);
 
   const categoryData = useMemo(() => {
-    const data: Record<string, number> = {};
+    const data: Record<string, number[]> = {};
     expenses.forEach(t => {
-      data[t.categoryId] = (data[t.categoryId] || 0) + t.amount;
+      if (!data[t.categoryId]) data[t.categoryId] = [];
+      data[t.categoryId].push(t.amount);
     });
     
     return Object.entries(data)
-      .map(([id, value]) => {
+      .map(([id, amounts]) => {
         const cat = categories.find(c => c.id === id);
+        const value = sum(amounts);
         return {
           id,
           name: cat?.name || 'Unknown',
@@ -71,18 +74,24 @@ export const Analytics: React.FC = () => {
   const topCategory = categoryData[0];
 
   const dailyData = useMemo(() => {
-    const data: Record<string, { date: string, expense: number, income: number }> = {};
+    const data: Record<string, { date: string, expenseAmounts: number[], incomeAmounts: number[] }> = {};
     
     filteredTransactions.forEach(t => {
       const dateStr = format(parseISO(t.date), 'MMM dd');
       if (!data[dateStr]) {
-        data[dateStr] = { date: dateStr, expense: 0, income: 0 };
+        data[dateStr] = { date: dateStr, expenseAmounts: [], incomeAmounts: [] };
       }
-      if (t.type === 'expense') data[dateStr].expense += t.amount;
-      if (t.type === 'income') data[dateStr].income += t.amount;
+      if (t.type === 'expense') data[dateStr].expenseAmounts.push(t.amount);
+      if (t.type === 'income') data[dateStr].incomeAmounts.push(t.amount);
     });
 
-    return Object.values(data).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return Object.values(data)
+      .map(d => ({
+        date: d.date,
+        expense: sum(d.expenseAmounts),
+        income: sum(d.incomeAmounts)
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [filteredTransactions]);
 
   return (
@@ -120,7 +129,7 @@ export const Analytics: React.FC = () => {
             <span className={cn("text-xs font-medium uppercase tracking-wider", isDark ? "text-zinc-400" : "text-zinc-500")}>Income</span>
             <TrendingUp className="text-emerald-500" size={16} />
           </div>
-          <span className="text-xl font-bold text-emerald-500">{currency}{totalIncome.toLocaleString('en-IN')}</span>
+          <span className="text-xl font-bold text-emerald-500">{currency}{formatNumber(totalIncome, 'en-IN', 2)}</span>
         </div>
         
         <div className={cn(
@@ -131,7 +140,7 @@ export const Analytics: React.FC = () => {
             <span className={cn("text-xs font-medium uppercase tracking-wider", isDark ? "text-zinc-400" : "text-zinc-500")}>Expense</span>
             <TrendingDown className="text-rose-500" size={16} />
           </div>
-          <span className="text-xl font-bold text-rose-500">{currency}{totalExpense.toLocaleString('en-IN')}</span>
+          <span className="text-xl font-bold text-rose-500">{currency}{formatNumber(totalExpense, 'en-IN', 2)}</span>
         </div>
       </div>
 
@@ -175,7 +184,7 @@ export const Analytics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value: number) => [`${currency}${value.toLocaleString('en-IN')}`, 'Amount']}
+                    formatter={(value: number) => [`${currency}${formatNumber(value, 'en-IN', 2)}`, 'Amount']}
                     contentStyle={{ 
                       backgroundColor: isDark ? '#18181b' : '#fff', 
                       borderColor: isDark ? '#27272a' : '#e4e4e7', 
@@ -189,14 +198,14 @@ export const Analytics: React.FC = () => {
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Total</span>
                 <span className="text-2xl font-black tracking-tighter">
-                  {currency}{totalExpense.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  {currency}{formatNumber(totalExpense, 'en-IN', 0)}
                 </span>
               </div>
             </div>
 
             <div className="space-y-5">
               {categoryData.slice(0, 5).map((cat, i) => {
-                const percentage = (cat.value / totalExpense) * 100;
+                const percentage = calculatePercentage(cat.value, totalExpense);
                 return (
                   <div key={i} className="group cursor-pointer">
                     <div className="flex items-center justify-between mb-1.5">
@@ -204,11 +213,11 @@ export const Analytics: React.FC = () => {
                         <CategoryIcon name={cat.icon} color={cat.color} />
                         <div>
                           <p className={cn("text-sm font-bold", isDark ? "text-zinc-200" : "text-zinc-800")}>{cat.name}</p>
-                          <p className="text-[10px] text-zinc-500 font-medium">{currency}{cat.value.toLocaleString('en-IN')}</p>
+                          <p className="text-[10px] text-zinc-500 font-medium">{currency}{formatNumber(cat.value, 'en-IN', 2)}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-black tracking-tighter">{Math.round(percentage)}%</p>
+                        <p className="text-xs font-black tracking-tighter">{formatNumber(percentage, 'en-IN', 1)}%</p>
                         <ChevronRight size={12} className="text-zinc-400 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </div>
