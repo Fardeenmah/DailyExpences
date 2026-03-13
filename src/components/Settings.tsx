@@ -1,10 +1,10 @@
 import React, { useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
-import { Download, Upload, Moon, Sun, Monitor, IndianRupee, DollarSign, Euro, PoundSterling, FileJson, FileSpreadsheet } from 'lucide-react';
+import { Download, Upload, Moon, Sun, Monitor, IndianRupee, DollarSign, Euro, PoundSterling, FileJson, FileSpreadsheet, FileText, ClipboardCopy } from 'lucide-react';
 
 export const Settings: React.FC = () => {
-  const { theme, setTheme, currency, setCurrency, exportData, importData, transactions } = useAppContext();
+  const { theme, setTheme, currency, setCurrency, exportData, importData, transactions, categories } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -34,8 +34,73 @@ export const Settings: React.FC = () => {
     downloadFile(blob, `daily-expenses-export-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
+  const handleExportTXT = () => {
+    const data = exportData();
+    const blob = new Blob([data], { type: 'text/plain;charset=utf-8;' });
+    downloadFile(blob, `daily-expenses-backup-${new Date().toISOString().split('T')[0]}.txt`);
+  };
+
+  const handleExportSheets = async () => {
+    const headers = ['id', 'amount', 'description', 'categoryId', 'date', 'type', 'paymentMode', 'tags', 'notes', 'isRecurring'];
+    const displayHeaders = ['id', 'amount', 'description', 'category', 'date', 'type', 'paymentMode', 'tags', 'notes', 'isRecurring'];
+    const tsvRows = [displayHeaders.join('\t')];
+    
+    transactions.forEach(t => {
+      const row = headers.map(h => {
+        let val = (t as any)[h];
+        if (h === 'categoryId') {
+          const category = categories.find(c => c.id === val);
+          val = category ? category.name : val;
+        }
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'string') return val.replace(/\t|\n/g, ' ');
+        if (Array.isArray(val)) return val.join(';');
+        return val;
+      });
+      tsvRows.push(row.join('\t'));
+    });
+    
+    const tsvString = tsvRows.join('\n');
+    
+    let copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(tsvString);
+        copied = true;
+      }
+    } catch (err) {
+      console.warn('Clipboard API failed', err);
+    }
+
+    if (!copied) {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = tsvString;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        copied = document.execCommand('copy');
+        textArea.remove();
+      } catch (err) {
+        console.warn('Fallback clipboard failed', err);
+      }
+    }
+
+    if (copied) {
+      alert('Data copied to clipboard! Open Google Sheets and paste (Long Press -> Paste).');
+    } else {
+      const blob = new Blob(['\ufeff' + tsvString], { type: 'text/tab-separated-values;charset=utf-8;' });
+      downloadFile(blob, `daily-expenses-sheets-${new Date().toISOString().split('T')[0]}.tsv`);
+    }
+  };
+
   const downloadFile = async (blob: Blob, filename: string) => {
-    // Try Web Share API first (works well on mobile WebViews/APKs)
+    let shareFailed = false;
+
+    // Try Web Share API first
     if (navigator.share && navigator.canShare) {
       try {
         const file = new File([blob], filename, { type: blob.type });
@@ -46,9 +111,10 @@ export const Settings: React.FC = () => {
           });
           return; // Successfully shared/saved
         }
-      } catch (err) {
-        console.error('Share failed:', err);
-        // Fallback to traditional download if share fails or is cancelled
+      } catch (err: any) {
+        if (err.name === 'AbortError') return; // User cancelled
+        shareFailed = true;
+        console.warn('Share API not allowed, falling back to download.');
       }
     }
 
@@ -60,7 +126,19 @@ export const Settings: React.FC = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 250);
+
+    // In restricted WebViews, standard downloads might fail silently.
+    // If share was denied, we copy to clipboard as a reliable ultimate fallback.
+    if (shareFailed) {
+      try {
+        const text = await blob.text();
+        await navigator.clipboard.writeText(text);
+        alert('Download triggered. If your device blocked the file, the raw data has also been copied to your clipboard!');
+      } catch (e) {
+        console.warn('Clipboard fallback failed');
+      }
+    }
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,63 +149,66 @@ export const Settings: React.FC = () => {
     reader.onload = (event) => {
       const content = event.target?.result as string;
       
-      if (file.name.endsWith('.json')) {
-        try {
-          const data = JSON.parse(content);
-          importData(data);
-          alert('JSON Data imported successfully!');
-        } catch (err) {
-          alert('Invalid JSON backup file.');
-        }
-      } else if (file.name.endsWith('.csv')) {
-        try {
-          const lines = content.split('\n').filter(l => l.trim());
-          if (lines.length < 2) throw new Error('Empty CSV');
+      // Try JSON parsing first (handles .json and .txt containing JSON)
+      try {
+        const data = JSON.parse(content);
+        importData(data);
+        alert('Data imported successfully!');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      } catch (err) {
+        // Not JSON, fall through to CSV/TSV
+      }
+
+      // Try CSV/TSV parsing
+      try {
+        const delimiter = content.indexOf('\t') >= 0 ? '\t' : ',';
+        const lines = content.split('\n').filter(l => l.trim());
+        if (lines.length < 2) throw new Error('Empty data');
+        
+        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+        const importedTx: any[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values: string[] = [];
+          let inQuotes = false;
+          let currentVal = '';
           
-          const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-          const importedTx: any[] = [];
-          
-          for (let i = 1; i < lines.length; i++) {
-            const values: string[] = [];
-            let inQuotes = false;
-            let currentVal = '';
-            
-            for (let char of lines[i]) {
-              if (char === '"') inQuotes = !inQuotes;
-              else if (char === ',' && !inQuotes) {
-                values.push(currentVal);
-                currentVal = '';
-              } else {
-                currentVal += char;
-              }
-            }
-            values.push(currentVal);
-            
-            const tx: any = {};
-            headers.forEach((h, idx) => {
-              let val: any = values[idx]?.replace(/^"|"$/g, '').replace(/""/g, '"');
-              if (h === 'amount') val = Number(parseFloat(val).toFixed(2));
-              if (h === 'isRecurring') val = val === 'true';
-              if (h === 'tags' && val) val = val.split(';');
-              tx[h] = val;
-            });
-            
-            if (tx.id && !isNaN(tx.amount) && tx.date) {
-              importedTx.push(tx);
+          for (let char of lines[i]) {
+            if (char === '"') inQuotes = !inQuotes;
+            else if (char === delimiter && !inQuotes) {
+              values.push(currentVal);
+              currentVal = '';
+            } else {
+              currentVal += char;
             }
           }
+          values.push(currentVal);
           
-          if (importedTx.length > 0) {
-            const newTx = [...transactions, ...importedTx];
-            const uniqueTx = Array.from(new Map(newTx.map(t => [t.id, t])).values());
-            importData({ transactions: uniqueTx });
-            alert('CSV Data imported successfully!');
-          } else {
-            alert('No valid transactions found in CSV.');
+          const tx: any = {};
+          headers.forEach((h, idx) => {
+            let val: any = values[idx]?.replace(/^"|"$/g, '').replace(/""/g, '"');
+            if (h === 'amount') val = Number(parseFloat(val).toFixed(2));
+            if (h === 'isRecurring') val = val === 'true';
+            if (h === 'tags' && val) val = val.split(';');
+            tx[h] = val;
+          });
+          
+          if (tx.id && !isNaN(tx.amount) && tx.date) {
+            importedTx.push(tx);
           }
-        } catch (err) {
-          alert('Invalid CSV file format.');
         }
+        
+        if (importedTx.length > 0) {
+          const newTx = [...transactions, ...importedTx];
+          const uniqueTx = Array.from(new Map(newTx.map(t => [t.id, t])).values());
+          importData({ transactions: uniqueTx });
+          alert('Data imported successfully!');
+        } else {
+          alert('No valid transactions found in file.');
+        }
+      } catch (err) {
+        alert('Invalid file format. Please upload a valid JSON, CSV, or TXT backup.');
       }
     };
     reader.readAsText(file);
@@ -242,6 +323,42 @@ export const Settings: React.FC = () => {
           </button>
 
           <button 
+            onClick={handleExportTXT}
+            className={cn(
+              "w-full flex items-center justify-between p-4 transition-colors",
+              isDark ? "hover:bg-zinc-800/50 border-b border-zinc-800/50" : "hover:bg-zinc-50 border-b border-zinc-100"
+            )}
+          >
+            <div className="flex items-center space-x-3">
+              <div className={cn("p-2 rounded-xl", isDark ? "bg-zinc-800 text-blue-400" : "bg-blue-50 text-blue-600")}>
+                <FileText size={20} />
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-sm">Export TXT</p>
+                <p className={cn("text-xs", isDark ? "text-zinc-500" : "text-zinc-400")}>Plain text backup</p>
+              </div>
+            </div>
+          </button>
+
+          <button 
+            onClick={handleExportSheets}
+            className={cn(
+              "w-full flex items-center justify-between p-4 transition-colors",
+              isDark ? "hover:bg-zinc-800/50 border-b border-zinc-800/50" : "hover:bg-zinc-50 border-b border-zinc-100"
+            )}
+          >
+            <div className="flex items-center space-x-3">
+              <div className={cn("p-2 rounded-xl", isDark ? "bg-zinc-800 text-emerald-400" : "bg-emerald-50 text-emerald-600")}>
+                <ClipboardCopy size={20} />
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-sm">Copy for Google Sheets</p>
+                <p className={cn("text-xs", isDark ? "text-zinc-500" : "text-zinc-400")}>Paste directly into Sheets</p>
+              </div>
+            </div>
+          </button>
+
+          <button 
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               "w-full flex items-center justify-between p-4 transition-colors",
@@ -254,7 +371,7 @@ export const Settings: React.FC = () => {
               </div>
               <div className="text-left">
                 <p className="font-medium text-sm">Import Backup</p>
-                <p className={cn("text-xs", isDark ? "text-zinc-500" : "text-zinc-400")}>Restore from JSON or CSV</p>
+                <p className={cn("text-xs", isDark ? "text-zinc-500" : "text-zinc-400")}>Restore from JSON, CSV, or TXT</p>
               </div>
             </div>
           </button>
@@ -262,7 +379,7 @@ export const Settings: React.FC = () => {
             type="file" 
             ref={fileInputRef} 
             onChange={handleImport} 
-            accept=".json,.csv,application/json,text/csv,*/*" 
+            accept=".json,.csv,.txt,application/json,text/csv,text/plain,*/*" 
             className="hidden" 
           />
         </div>
