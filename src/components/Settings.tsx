@@ -35,9 +35,41 @@ export const Settings: React.FC = () => {
   };
 
   const handleExportTXT = () => {
-    const data = exportData();
-    const blob = new Blob([data], { type: 'text/plain;charset=utf-8;' });
-    downloadFile(blob, `daily-expenses-backup-${new Date().toISOString().split('T')[0]}.txt`);
+    const headers = ['id', 'amount', 'description', 'categoryId', 'date', 'type', 'paymentMode', 'tags', 'notes', 'isRecurring'];
+    const displayHeaders = ['id', 'amount', 'description', 'category', 'date', 'type', 'paymentMode', 'tags', 'notes', 'isRecurring'];
+    const tsvRows = [displayHeaders.join('\t')];
+    
+    transactions.forEach(t => {
+      const row = headers.map(h => {
+        let val = (t as any)[h];
+        if (h === 'categoryId') {
+          const category = categories.find(c => c.id === val);
+          val = category ? category.name : val;
+        }
+        if (h === 'date' && val) {
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) {
+            val = d.toLocaleString('en-US', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            });
+          }
+        }
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'string') return val.replace(/\t|\n/g, ' ');
+        if (Array.isArray(val)) return val.join(';');
+        return val;
+      });
+      tsvRows.push(row.join('\t'));
+    });
+    
+    const tsvString = tsvRows.join('\n');
+    const blob = new Blob(['\ufeff' + tsvString], { type: 'text/plain;charset=utf-8;' });
+    downloadFile(blob, `daily-expenses-export-${new Date().toISOString().split('T')[0]}.txt`);
   };
 
   const handleExportSheets = async () => {
@@ -51,6 +83,22 @@ export const Settings: React.FC = () => {
         if (h === 'categoryId') {
           const category = categories.find(c => c.id === val);
           val = category ? category.name : val;
+        }
+        if (h === 'date' && val) {
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) {
+            // Prepend apostrophe to force Google Sheets to treat it as text.
+            // This prevents Sheets from auto-formatting it to 24-hour time,
+            // ensuring the 12-hour AM/PM format is perfectly preserved.
+            val = "'" + d.toLocaleString('en-US', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            });
+          }
         }
         if (val === null || val === undefined) return '';
         if (typeof val === 'string') return val.replace(/\t|\n/g, ' ');
