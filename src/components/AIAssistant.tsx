@@ -78,7 +78,7 @@ Answer the user's questions about their finances, provide insights, and offer he
   return (
     <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center animate-in fade-in duration-200">
       <div className={cn(
-        "w-full max-w-md h-[90vh] sm:h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300",
+        "w-full max-w-md h-[100dvh] sm:h-[80vh] flex flex-col sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300",
         isDark ? "bg-zinc-950 border border-zinc-800" : "bg-white border border-zinc-200"
       )}>
         {/* Header */}
@@ -150,12 +150,14 @@ Answer the user's questions about their finances, provide insights, and offer he
           "p-4 border-t",
           isDark ? "border-zinc-800 bg-zinc-900/50" : "border-zinc-100 bg-zinc-50/50"
         )}>
-          <div className="relative flex items-center">
+          <form 
+            onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+            className="relative flex items-center"
+          >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Ask about your expenses..."
               className={cn(
                 "w-full py-3 pl-4 pr-12 rounded-full text-sm outline-none transition-colors",
@@ -165,7 +167,7 @@ Answer the user's questions about their finances, provide insights, and offer he
               )}
             />
             <button
-              onClick={handleSend}
+              type="submit"
               disabled={!input.trim() || isLoading}
               className={cn(
                 "absolute right-2 p-2 rounded-full transition-colors",
@@ -176,7 +178,7 @@ Answer the user's questions about their finances, provide insights, and offer he
             >
               <Send size={16} />
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

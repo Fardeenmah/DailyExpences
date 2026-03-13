@@ -34,7 +34,25 @@ export const Settings: React.FC = () => {
     downloadFile(blob, `daily-expenses-export-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
-  const downloadFile = (blob: Blob, filename: string) => {
+  const downloadFile = async (blob: Blob, filename: string) => {
+    // Try Web Share API first (works well on mobile WebViews/APKs)
+    if (navigator.share && navigator.canShare) {
+      try {
+        const file = new File([blob], filename, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'Exported Data',
+            files: [file]
+          });
+          return; // Successfully shared/saved
+        }
+      } catch (err) {
+        console.error('Share failed:', err);
+        // Fallback to traditional download if share fails or is cancelled
+      }
+    }
+
+    // Fallback traditional download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -244,7 +262,7 @@ export const Settings: React.FC = () => {
             type="file" 
             ref={fileInputRef} 
             onChange={handleImport} 
-            accept=".json,.csv" 
+            accept=".json,.csv,application/json,text/csv,*/*" 
             className="hidden" 
           />
         </div>
