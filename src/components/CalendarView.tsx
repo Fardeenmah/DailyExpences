@@ -168,7 +168,7 @@ export const CalendarView: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ 
                 <div>
                   <p className="font-semibold text-base">{t.description}</p>
                   <p className={cn("text-xs mt-0.5", isDark ? "text-zinc-500" : "text-zinc-400")}>
-                    {t.paymentMode} • {format(parseISO(t.date), 'HH:mm')}
+                    {t.paymentMode} • {format(parseISO(t.date), 'hh:mm a')}
                   </p>
                 </div>
                 <div className="flex flex-col items-end space-y-2">

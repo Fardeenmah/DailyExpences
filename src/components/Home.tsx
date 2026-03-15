@@ -284,7 +284,7 @@ const TransactionItem = ({ transaction, isDark, currency, categories, onEdit, on
               {transaction.paymentMode}
             </span>
             <span className={cn("text-xs", isDark ? "text-zinc-500" : "text-zinc-400")}>
-              {format(parseISO(transaction.date), 'HH:mm')}
+              {format(parseISO(transaction.date), 'hh:mm a')}
             </span>
           </div>
         </div>
