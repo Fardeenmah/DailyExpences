@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
-import { format, subDays, isWithinInterval, parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, isWithinInterval, parseISO, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, PieChart as PieChartIcon, Utensils, Car, Receipt, ShoppingBag, HeartPulse, Wallet, MoreHorizontal, Briefcase, Building, Gift, PlusCircle, Home as HomeIcon, RefreshCcw, Award, Tag, Film, Book, ShoppingCart, Bus, Zap, Shield, Smile, CreditCard, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, PieChart as PieChartIcon, Utensils, Car, Receipt, ShoppingBag, HeartPulse, Wallet, MoreHorizontal, Briefcase, Building, Gift, PlusCircle, Home as HomeIcon, RefreshCcw, Award, Tag, Film, Book, ShoppingCart, Bus, Zap, Shield, Smile, CreditCard, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { sum, calculatePercentage, formatNumber } from '../lib/math';
+import { CalendarPicker } from './CalendarPicker';
 
 const ICON_MAP: Record<string, any> = {
   Utensils, Car, Receipt, ShoppingBag, HeartPulse, Wallet, MoreHorizontal, Briefcase, Building, Gift, PlusCircle,
@@ -23,25 +24,41 @@ const CategoryIcon = ({ name, color, size = 16 }: { name: string, color: string,
 export const Analytics: React.FC = () => {
   const { transactions, categories, currency, theme } = useAppContext();
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const [dateRange, setDateRange] = useState<'7D' | '30D' | 'ThisMonth'>('ThisMonth');
+  const [dateRange, setDateRange] = useState<'7D' | '30D' | 'ThisMonth' | 'Custom'>('ThisMonth');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [customStartDate, setCustomStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const filteredTransactions = useMemo(() => {
-    const today = new Date();
     let start, end;
     
     if (dateRange === '7D') {
-      start = subDays(today, 7);
-      end = today;
+      start = subDays(selectedDate, 7);
+      end = selectedDate;
     } else if (dateRange === '30D') {
-      start = subDays(today, 30);
-      end = today;
+      start = subDays(selectedDate, 30);
+      end = selectedDate;
+    } else if (dateRange === 'ThisMonth') {
+      start = startOfMonth(selectedDate);
+      end = endOfMonth(selectedDate);
     } else {
-      start = startOfMonth(today);
-      end = endOfMonth(today);
+      // Custom date range
+      const s = startOfDay(parseISO(customStartDate));
+      const e = endOfDay(parseISO(customEndDate));
+      const interval = { 
+        start: s < e ? s : e, 
+        end: e > s ? e : s 
+      };
+      
+      return transactions.filter(t => {
+        const tDate = parseISO(t.date);
+        return isWithinInterval(tDate, interval);
+      });
     }
 
     return transactions.filter(t => isWithinInterval(parseISO(t.date), { start, end }));
-  }, [transactions, dateRange]);
+  }, [transactions, dateRange, selectedDate, customStartDate, customEndDate]);
 
   const expenses = filteredTransactions.filter(t => t.type === 'expense');
   const income = filteredTransactions.filter(t => t.type === 'income');
@@ -96,13 +113,26 @@ export const Analytics: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between pt-4">
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+      <div className="flex flex-col space-y-4 pt-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+          <button 
+            onClick={() => setIsCalendarOpen(true)}
+            className={cn(
+              "flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+              isDark ? "bg-zinc-800 text-zinc-200 hover:bg-zinc-700" : "bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
+            )}
+          >
+            <CalendarIcon size={14} className="text-indigo-500" />
+            <span>{format(selectedDate, 'dd MMM yyyy')}</span>
+          </button>
+        </div>
+        
         <div className={cn(
-          "flex p-1 rounded-full",
+          "flex p-1 rounded-full self-start",
           isDark ? "bg-zinc-800" : "bg-zinc-200"
         )}>
-          {['7D', '30D', 'ThisMonth'].map((r) => (
+          {['7D', '30D', 'ThisMonth', 'Custom'].map((r) => (
             <button
               key={r}
               onClick={() => setDateRange(r as any)}
@@ -117,7 +147,48 @@ export const Analytics: React.FC = () => {
             </button>
           ))}
         </div>
+
+        {dateRange === 'Custom' && (
+          <div className="flex items-center space-x-4 animate-in slide-in-from-top-2 duration-200">
+            <div className="flex flex-col space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">From</label>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className={cn(
+                  "px-3 py-2 rounded-xl text-xs font-medium outline-none transition-colors",
+                  isDark ? "bg-zinc-900 text-white border border-zinc-800 focus:border-indigo-500" : "bg-white text-zinc-900 border border-zinc-200 focus:border-indigo-300 shadow-sm"
+                )}
+              />
+            </div>
+            <div className="flex flex-col space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">To</label>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className={cn(
+                  "px-3 py-2 rounded-xl text-xs font-medium outline-none transition-colors",
+                  isDark ? "bg-zinc-900 text-white border border-zinc-800 focus:border-indigo-500" : "bg-white text-zinc-900 border border-zinc-200 focus:border-indigo-300 shadow-sm"
+                )}
+              />
+            </div>
+          </div>
+        )}
       </div>
+
+      {isCalendarOpen && (
+        <CalendarPicker 
+          selectedDate={selectedDate}
+          onSelect={(date) => {
+            setSelectedDate(date);
+            if (dateRange !== 'Custom') setDateRange('ThisMonth');
+          }}
+          onClose={() => setIsCalendarOpen(false)}
+          isDark={isDark}
+        />
+      )}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 gap-4">

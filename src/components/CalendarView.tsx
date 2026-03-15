@@ -5,12 +5,14 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { Transaction } from '../types';
 import { sum, formatNumber } from '../lib/math';
+import { CalendarPicker } from './CalendarPicker';
 
 export const CalendarView: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }) => {
   const { transactions, currency, theme, deleteTransaction } = useAppContext();
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
 
   const daysInMonth = useMemo(() => {
@@ -43,7 +45,9 @@ export const CalendarView: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ 
   }, [transactions]);
 
   const selectedDayTransactions = useMemo(() => {
-    return transactions.filter(t => isSameDay(parseISO(t.date), selectedDate));
+    return transactions
+      .filter(t => isSameDay(parseISO(t.date), selectedDate))
+      .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   }, [transactions, selectedDate]);
 
   const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
@@ -60,15 +64,30 @@ export const CalendarView: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ 
           <button onClick={handlePrevMonth} className="p-1 hover:bg-zinc-700/50 rounded-full transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <div className="flex items-center space-x-1 px-2">
+          <button 
+            onClick={() => setIsCalendarOpen(true)}
+            className="flex items-center space-x-1 px-2 hover:bg-zinc-700/20 rounded-lg transition-colors py-0.5"
+          >
             <CalendarIcon size={14} className="text-indigo-500" />
             <span>{format(currentMonth, 'MMMM yyyy')}</span>
-          </div>
+          </button>
           <button onClick={handleNextMonth} className="p-1 hover:bg-zinc-700/50 rounded-full transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
+
+      {isCalendarOpen && (
+        <CalendarPicker 
+          selectedDate={selectedDate}
+          onSelect={(date) => {
+            setSelectedDate(date);
+            setCurrentMonth(date);
+          }}
+          onClose={() => setIsCalendarOpen(false)}
+          isDark={isDark}
+        />
+      )}
 
       {/* Calendar Grid */}
       <div className={cn(

@@ -5,9 +5,11 @@ import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import { Transaction } from '../types';
 import { sum, formatNumber } from '../lib/math';
+import { CalendarPicker } from './CalendarPicker';
 
 export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const { transactions, categories, currency, theme, deleteTransaction } = useAppContext();
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -17,7 +19,9 @@ export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }
 
   // Calculations
   const dailyTransactions = useMemo(() => {
-    return transactions.filter(t => isSameDay(parseISO(t.date), selectedDate));
+    return transactions
+      .filter(t => isSameDay(parseISO(t.date), selectedDate))
+      .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   }, [transactions, selectedDate]);
 
   const dailyTotal = useMemo(() => {
@@ -70,15 +74,27 @@ export const Home: React.FC<{ onEdit?: (t: Transaction) => void }> = ({ onEdit }
           <button onClick={handlePrevDay} className="p-1 hover:bg-zinc-700/50 rounded-full transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <div className="flex items-center space-x-1 px-2">
+          <button 
+            onClick={() => setIsCalendarOpen(true)}
+            className="flex items-center space-x-1 px-2 hover:bg-zinc-700/20 rounded-lg transition-colors py-0.5"
+          >
             <CalendarIcon size={14} className="text-indigo-500" />
             <span>{format(selectedDate, 'dd MMM yyyy')}</span>
-          </div>
+          </button>
           <button onClick={handleNextDay} className="p-1 hover:bg-zinc-700/50 rounded-full transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
+
+      {isCalendarOpen && (
+        <CalendarPicker 
+          selectedDate={selectedDate}
+          onSelect={setSelectedDate}
+          onClose={() => setIsCalendarOpen(false)}
+          isDark={isDark}
+        />
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4">
